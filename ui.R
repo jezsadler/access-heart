@@ -1,17 +1,12 @@
 #
-# This is the user-interface definition of a Shiny web application. You can
-# run the application by clicking 'Run App' above.
-#
-# Find out more about building applications with Shiny here:
-#
-#    http://shiny.rstudio.com/
-#
+# UI file for the AccessHeart Shiny app.
+# 
 
 library(shiny)
 library(shinythemes)
 library(shinyjs)
 
-
+# Style for the loading page.
 appCSS <- "
 #loading-content {
   position: absolute;
@@ -30,6 +25,7 @@ appCSS <- "
 # Set the Shiny theme.
 shinyUI(fluidPage(
     theme = shinytheme("superhero"),
+    # Include your Google Analytics script here for tracking.
     tags$head(includeScript("google-analytics.js")),
     useShinyjs(),
     inlineCSS(appCSS),
@@ -58,20 +54,23 @@ shinyUI(fluidPage(
             });
     '),
     
+    # On application start, show loading screen while all the elements load.
     div(
         id = "loading-content",
         h2("Loading AccessHeart...")
     ),
     
-    # Application title
+    # Main application UI.
     hidden(div(
         id = "app-content",
+      
+        # Title - shown on all pages.
         titlePanel("AccessHeart Cardiovascular Disease Risk Calculator"),
         hr(),
         mainPanel( 
         # We're implementing the form as a set of divs which show and hide dynamically as the user moves through them.
             div(
-                # The first tab is the user data input form. 
+                # The first tab is the user data input form, which collects age and blood pressure.. 
                 id = "form_page",
                 div("Welcome to the AccessHeart cardiovascular disease risk calculator. Please enter your information below:"),
                 hr(),
@@ -82,12 +81,15 @@ shinyUI(fluidPage(
                 sliderInput("ap_hi", "Systolic",0,200,120),
                 sliderInput("ap_lo", "Diastolic",0,200,80),
                 hr(),
+                # Get consent to store user data.
                 fluidRow(
                     column(3,checkboxInput("storedata","I consent to my anonymous data being stored for auditing purposes",value = TRUE)),
                     column(1,actionButton("submit", "Submit", class = "btn-primary"))
                 )
                 ),
             hidden(div(
+                # The second page shows the results of the CVD risk model. If their risk is under 10%, the 
+                # application won't go further; if it's over 10%, they will be sent on to the quiz page.
                 id = "results_page",
                 div("Your risk of cardiovascular disease is:"),
                 h2(textOutput("riskpct")),
@@ -99,7 +101,10 @@ shinyUI(fluidPage(
                     )
                 )),
             hidden(div(
+                # The third page is a form for the user to describe their lifestyle, which is used for 
+                # determining appropriate recommended actions.
                 id = "quiz_page",
+                # Allow them to select metric or US/imperial units for height and weight.
                 checkboxInput("metric","I use metric units"),
                 conditionalPanel(
                   condition = "input.metric == true",
@@ -112,6 +117,7 @@ shinyUI(fluidPage(
                   sliderInput("usweight", "Weight (lbs)",1,500,185)
                 ),
                 hr(),
+                # Questions about their lifestyle.
                 selectInput("chol", "Have you had your cholesterol checked in the past year?",c("Yes","No"), selected = "No"),
                 selectInput("glucose", "Have you had your blood sugar checked in the past year?",c("Yes","No"), selected = 
                               "No"),
@@ -120,6 +126,8 @@ shinyUI(fluidPage(
                             "Do you get at least 75 minutes of vigorous exercise or 150 minutes of moderate exercise each week?", 
                             c("Yes", "No"), selected = "No"),
                 hr(),
+                # We take a guess at their zip code based on browser location, and allow them to enter a different ZIP
+                # if they prefer.
                 div("Enter your ZIP code for pricing in your area:"),
                 numericInput("usr_zip",label=NULL,value = 0,max= 99999),
                 hr(),
@@ -129,6 +137,7 @@ shinyUI(fluidPage(
                 )
             )),
             hidden(div(
+                # The last page displays personal recommendations with local costs.
                 id = "costs_page",
                 textOutput("recs_intro"),
                 tableOutput("risktable"),
