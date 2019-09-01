@@ -12,7 +12,8 @@ library(googlesheets)
 library(zipcode)
 library(rms)
 
-# Get the auth token for Google Sheets.
+# Get the auth token for Google Sheets. You will need to create this:
+# https://www.rdocumentation.org/packages/googlesheets/versions/0.3.0/topics/gs_auth
 gs_auth(token="ttt.rds")
 
 # Load the trained risk prediction model.
@@ -22,8 +23,10 @@ load("model.3sd.rda")
 data(zipcode)
 cost_table <- zipcode
 
+# Load in the cost data; obtained from guroo.com.
 cost_data <- read.csv("costs_2019-08-11.csv",stringsAsFactors = FALSE)
 
+# Merge cost data to zip codes. Currently this is done at a state level; ideally it would be more granular.
 cost_table <- merge(cost_table,cost_data,by.x = "state",by.y = "Location",all.x = TRUE)
 
 # Fill in missing values with the national average
@@ -54,7 +57,7 @@ THRESH <- 0.1
 
 shinyServer(function(input, output,session) {
     # Connect to Google Sheets
-    usrdata_gs <- gs_key("1cRii1WlVb_hcBduog9e7C_s5KmmJLsvVsv8tVBKklaE")
+    usrdata_gs <- gs_key([YOUR GOOGLE SHEETS KEY])
     # Display blood pressure as a nice big fraction.
     output$bp_all <- renderText({
         paste0(input$ap_hi,"/",input$ap_lo)
@@ -62,10 +65,12 @@ shinyServer(function(input, output,session) {
     # Set up a place to store the risk level between actions
     values <- reactiveValues()
 
+    # Wait 3 seconds on the loading screen to give everything time to get into place.
     Sys.sleep(3)
-    # Hide the loading message when the rest of the server function has executed
+    # Hide the loading message and show the app when the rest of the server function has executed
     hide(id = "loading-content", anim = TRUE, animType = "fade")    
     showElement("app-content")
+
     # When they submit the form:
     observeEvent(input$submit, {
  
@@ -104,7 +109,7 @@ shinyServer(function(input, output,session) {
                 )
             )
         
-        
+        # If they are above the threshold, give them a button to go to the quiz.
         output$to_quiz <- renderUI({
             if(risklvl != "low") {
                 actionButton("quiz_button", "Next", class = "btn-primary")
@@ -119,7 +124,7 @@ shinyServer(function(input, output,session) {
             "Location","Time","Age","Systolic BP","Diastolic BP","Cardiovascular Disease risk","CVD Risk level")
         
         # If the user has consented, write the results to the Google Sheet
-        if(input$storedata == TRUE){gs_add_row(usrdata_gs, ws = "Short", input = usrdata)}
+        if(input$storedata == TRUE){gs_add_row(usrdata_gs, ws = [YOUR GOOGLE SHEETS WORKSHEET NAME], input = usrdata)}
         
                 
         # Move to the Results page.
@@ -146,6 +151,7 @@ shinyServer(function(input, output,session) {
         # Pre-populate the zipcode on the cost form. 
         updateNumericInput(session, "usr_zip", value = user_zip_guess)
         
+        # Move to the quiz page.
         hideElement(id = "results_page")    
         showElement(id = "quiz_page")
     })
@@ -197,12 +203,15 @@ shinyServer(function(input, output,session) {
             if((input$ap_hi < 140 & input$ap_hi >=130) | input$ap_lo >= 80){hypertension <- 1} else 
                 if (input$ap_hi < 130 & input$ap_lo < 80){hypertension <- 0} 
         
+        # Recommendation on BMI.
         if(bmi >= 30 & hypertension > 0){reccos <- rbind(reccos,data.frame(Recommendation=recco_text["bmi_recc_text_1",],Cost=paste0("$",unlist(usr_costlist[6]))))}
 
+        # Recommendation on cholesterol.
         if(input$age >= 40 & input$age <= 75 & bmi < 30 & hypertension == 0 & input$glucose == "Yes" & values$risk >= THRESH){
             reccos <- rbind(reccos,data.frame(Recommendation=recco_text["chol_recc_text_1",],Cost=paste0("$",unlist(usr_costlist[2]))))
         } 
         
+        # Recommendation on hypertension.
         if (hypertension == 2){
             reccos <- rbind(reccos,data.frame(Recommendation=recco_text["hbp_recc_text_1",],Cost=paste0("$",unlist(usr_costlist[4]))))
         } else if (hypertension == 1){
@@ -217,8 +226,6 @@ shinyServer(function(input, output,session) {
         } else if (input$glucose == "No"){
             reccos <- rbind(reccos,data.frame(Recommendation=recco_text["glucose_recc_text_2",],Cost=paste0("$",unlist(usr_costlist[6]))))
             }
-            
-
         
         # Appropriate text to describe the user's situation.
         output$recs_intro <- renderText(paste0("These are your personalized heart health recommendations, with the average costs in ",
